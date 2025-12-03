@@ -3,7 +3,7 @@ from pathlib import Path
 import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-CSFR_TRUSTED_ORIGINS = ['https://api-multi-tenant-production.up.railway.app','http://127.0.0.1:3000']
+CSRF_TRUSTED_ORIGINS = ['https://api-multi-tenant-production.up.railway.app','http://127.0.0.1:3000']
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-33z_llhd-!n(m(wfkm0tf7q31w5=6%hju(xx+!9)1&&=_l0qkv')
 DEBUG = config('DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = ['*']
