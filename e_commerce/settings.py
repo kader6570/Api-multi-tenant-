@@ -54,7 +54,9 @@ DB_LIVE = config('DB_LIVE',cast=bool)
 
 
 # CORS Configuration
-CORS_ALLOWED_ORIGINS = True  # ⚠️ Pour dev uniquement, à remplacer en prod par CORS_ALLOWED_ORIGINS
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+] # ⚠️ Pour dev uniquement, à remplacer en prod par CORS_ALLOWED_ORIGINS
 
 
 
