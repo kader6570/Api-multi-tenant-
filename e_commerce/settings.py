@@ -51,22 +51,22 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'e_commerce.wsgi.application'
-DB_LIVE = config('DB_LIVE',cast=bool)
 
+# Configuration de la base de données
+DB_LIVE = config('DB_LIVE', default=False, cast=bool)
 
 # CORS Configuration
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ] # ⚠️ Pour dev uniquement, à remplacer en prod par CORS_ALLOWED_ORIGINS
 
-
-
 # Database
 if DB_LIVE:
     # Production : PostgreSQL via Railway
-
     DATABASES = {
-        'default': dj_database_url.parse(config('DATABASE_URL'))
+        'default': dj_database_url.parse(
+            config('DATABASE_URL', default='sqlite:///db.sqlite3')
+        )
     }
 else:
     # Développement local : SQLite
