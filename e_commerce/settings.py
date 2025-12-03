@@ -1,5 +1,6 @@
 from decouple import config, Csv
 from pathlib import Path
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -63,15 +64,9 @@ CORS_ALLOWED_ORIGINS = [
 # Database
 if DB_LIVE:
     # Production : PostgreSQL via Railway
+
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': config('PGDATABASE'),
-            'USER': config('PGUSER'),
-            'PASSWORD': config('PGPASSWORD'),
-            'HOST': config('PGHOST'),
-            'PORT': config('PGPORT', default='5432'),
-        }
+        'default': dj_database_url.parse(config('DATABASE_URL'))
     }
 else:
     # Développement local : SQLite
