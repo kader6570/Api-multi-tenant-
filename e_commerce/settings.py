@@ -50,21 +50,35 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'e_commerce.wsgi.application'
+DB_LIVE = config('DB_LIVE',cast=bool)
+
 
 # CORS Configuration
 CORS_ALLOW_ALL_ORIGINS = True  # ⚠️ Pour dev uniquement, à remplacer en prod par CORS_ALLOWED_ORIGINS
 
+
+
 # Database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('PGDATABASE', default='railway'),
-        'USER': config('PGUSER', default='postgres'),  # ✅ CORRIGÉ
-        'PASSWORD': config('PGPASSWORD', default=''),
-        'HOST': config('PGHOST', default='localhost'),  # ✅ CORRIGÉ
-        'PORT': config('PGPORT', default='5432'),
+if DB_LIVE:
+    # Production : PostgreSQL via Railway
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('PGDATABASE'),
+            'USER': config('PGUSER'),
+            'PASSWORD': config('PGPASSWORD'),
+            'HOST': config('PGHOST'),
+            'PORT': config('PGPORT', default='5432'),
+        }
     }
-}
+else:
+    # Développement local : SQLite
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
