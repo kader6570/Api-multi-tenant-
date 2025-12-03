@@ -58,6 +58,7 @@ DB_LIVE = config('DB_LIVE', default=False, cast=bool)
 # CORS Configuration
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    'https://willtelecomkoudougou.netlify.app/'
 ] # ⚠️ Pour dev uniquement, à remplacer en prod par CORS_ALLOWED_ORIGINS
 
 # Database
