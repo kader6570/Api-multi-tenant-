@@ -246,9 +246,17 @@ class MarqueAdmin(ClientFilterMixin, admin.ModelAdmin):
     def apercu_logo(self, obj):
         """Affiche une miniature du logo"""
         if obj.logo:
+            # MODIFIÉ : Compatible avec Cloudinary
+            try:
+                # Si c'est un CloudinaryField, build_url existe
+                logo_url = obj.logo.build_url(width=100, height=50, crop='fit')
+            except AttributeError:
+                # Sinon, utiliser l'URL directe
+                logo_url = obj.logo.url if hasattr(obj.logo, 'url') else obj.logo
+            
             return format_html(
                 '<img src="{}" style="max-height: 50px; max-width: 100px;" />',
-                obj.logo.url
+                logo_url
             )
         return '-'
     apercu_logo.short_description = 'Logo'
@@ -267,13 +275,13 @@ class MarqueAdmin(ClientFilterMixin, admin.ModelAdmin):
 
 
 # ========================================
-# ✅ ADMIN : Article (filtré par client)
+# ✅ ADMIN : Article (filtré par client) - MODIFIÉ POUR CLOUDINARY
 # ========================================
 @admin.register(models.Article)
 class ArticleAdmin(ClientFilterMixin, admin.ModelAdmin):
     """
     Gestion des articles - Filtré par client
-    Interface complète avec aperçus d'images
+    Interface complète avec aperçus d'images Cloudinary
     """
     list_display = (
         'modele', 
@@ -300,7 +308,7 @@ class ArticleAdmin(ClientFilterMixin, admin.ModelAdmin):
         }),
         ('Images principales', {
             'fields': ('image', 'image1', 'image2'),
-            'description': 'Les images seront automatiquement optimisées et redimensionnées'
+            'description': 'Les images seront automatiquement uploadées et optimisées sur Cloudinary'
         }),
         ('Aperçu des images', {
             'fields': ('apercu_images_complet',),
@@ -317,45 +325,71 @@ class ArticleAdmin(ClientFilterMixin, admin.ModelAdmin):
     get_client_display.short_description = 'Client'
     
     def apercu_image(self, obj):
-        """Miniature de l'image principale dans la liste"""
-        if obj.image_thumbnail:
-            return format_html(
-                '<img src="{}" style="max-height: 60px; border-radius: 4px;" />',
-                obj.image_thumbnail.url
-            )
-        elif obj.image:
-            return format_html(
-                '<img src="{}" style="max-height: 60px; border-radius: 4px;" />',
-                obj.image.url
-            )
+        """Miniature de l'image principale dans la liste - CLOUDINARY VERSION"""
+        if obj.image:
+            try:
+                # Utiliser la méthode helper du modèle pour obtenir le thumbnail
+                thumb_url = obj.get_image_thumbnail_url()
+                return format_html(
+                    '<img src="{}" style="max-height: 60px; border-radius: 4px;" />',
+                    thumb_url
+                )
+            except:
+                # Fallback : URL directe
+                image_url = obj.image.url if hasattr(obj.image, 'url') else str(obj.image)
+                return format_html(
+                    '<img src="{}" style="max-height: 60px; border-radius: 4px;" />',
+                    image_url
+                )
         return '-'
     apercu_image.short_description = 'Image'
     
     def apercu_images_complet(self, obj):
-        """Affiche toutes les images du produit dans le formulaire"""
+        """Affiche toutes les images du produit - CLOUDINARY VERSION"""
         html = '<div style="display: flex; gap: 20px; flex-wrap: wrap;">'
         
         images = [
-            ('Image principale', obj.image, obj.image_thumbnail),
-            ('Image 2', obj.image1, obj.image1_thumbnail),
-            ('Image 3', obj.image2, obj.image2_thumbnail),
+            ('Image principale', obj.image, obj.get_image_thumbnail_url),
+            ('Image 2', obj.image1, obj.get_image1_thumbnail_url),
+            ('Image 3', obj.image2, obj.get_image2_thumbnail_url),
         ]
         
-        for label, img, thumb in images:
+        for label, img, thumb_method in images:
             if img:
-                html += f'''
-                <div style="text-align: center;">
-                    <strong>{label}</strong><br>
-                    <img src="{img.url}" style="max-width: 200px; margin-top: 10px; border: 1px solid #ddd; border-radius: 4px;" />
-                    <br><small>Taille complète</small>
-                </div>
-                '''
-                if thumb:
+                try:
+                    # Obtenir l'URL optimisée (1200px max)
+                    if label == 'Image principale':
+                        img_url = obj.get_image_optimized_url()
+                    elif label == 'Image 2':
+                        img_url = obj.get_image1_optimized_url()
+                    else:
+                        img_url = obj.get_image2_optimized_url()
+                    
+                    # Obtenir le thumbnail
+                    thumb_url = thumb_method()
+                    
                     html += f'''
                     <div style="text-align: center;">
-                        <strong>Thumbnail</strong><br>
-                        <img src="{thumb.url}" style="max-width: 100px; margin-top: 10px; border: 1px solid #ddd; border-radius: 4px;" />
-                        <br><small>Miniature</small>
+                        <strong>{label}</strong><br>
+                        <img src="{img_url}" style="max-width: 200px; margin-top: 10px; border: 1px solid #ddd; border-radius: 4px;" />
+                        <br><small>Taille optimisée (1200px)</small>
+                    </div>
+                    '''
+                    if thumb_url:
+                        html += f'''
+                        <div style="text-align: center;">
+                            <strong>Thumbnail</strong><br>
+                            <img src="{thumb_url}" style="max-width: 100px; margin-top: 10px; border: 1px solid #ddd; border-radius: 4px;" />
+                            <br><small>Miniature (300x300)</small>
+                        </div>
+                        '''
+                except Exception as e:
+                    # Fallback en cas d'erreur
+                    img_url = img.url if hasattr(img, 'url') else str(img)
+                    html += f'''
+                    <div style="text-align: center;">
+                        <strong>{label}</strong><br>
+                        <img src="{img_url}" style="max-width: 200px; margin-top: 10px; border: 1px solid #ddd; border-radius: 4px;" />
                     </div>
                     '''
         
