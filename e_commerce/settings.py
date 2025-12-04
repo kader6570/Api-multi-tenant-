@@ -1,6 +1,9 @@
 from decouple import config, Csv
 from pathlib import Path
 import dj_database_url
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CSRF_TRUSTED_ORIGINS = ['https://api-multi-tenant-production.up.railway.app','http://127.0.0.1:3000']
@@ -18,6 +21,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'root',
+    'cloudinary',
+    'cloudinary_storage',
 ]
 
 MIDDLEWARE = [
@@ -58,7 +63,7 @@ DB_LIVE = config('DB_LIVE', default=False, cast=bool)
 # CORS Configuration
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    'https://willtelecomkoudougou.netlify.app/'
+    'https://willtelecomkoudougou.netlify.app'
 ] # ⚠️ Pour dev uniquement, à remplacer en prod par CORS_ALLOWED_ORIGINS
 
 # Database
@@ -77,7 +82,15 @@ else:
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
-
+    
+# Le cloudinary
+cloudinary.config(
+    cloud_name=config('CLOUDINARY_CLOUD_NAME'),
+    api_key=config('CLOUDINARY_API_KEY'),
+    api_secret=config('CLOUDINARY_API_SECRET'),
+    secure=True
+)
+    
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -111,6 +124,7 @@ MEDIA_ROOT = BASE_DIR / 'mediafiles'
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 # Production security settings
 if not DEBUG:

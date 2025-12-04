@@ -18,3 +18,5 @@ staticfiles/
 # Logs
 *.log
 
+mediafiles/
+

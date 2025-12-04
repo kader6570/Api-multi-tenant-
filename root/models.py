@@ -7,6 +7,11 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 import sys
 import os
 
+# ========================================
+# IMPORTS CLOUDINARY (AJOUTÉS)
+# ========================================
+from cloudinary.models import CloudinaryField
+
 
 # ========================================
 # NOUVEAU MODÈLE : Client (Tenant)
@@ -61,7 +66,8 @@ class Categorie(models.Model):
 class Marque(models.Model):
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='marques')
     nom_marque = models.CharField(verbose_name="Nom de la marque", max_length=20)
-    logo = models.ImageField(upload_to='images_logo/')
+    # MODIFIÉ : Utilise CloudinaryField pour le logo
+    logo = CloudinaryField('logo', folder='logos/', blank=True, null=True)
 
     def __str__(self):
         return f"{self.nom_marque} ({self.client.nom})"
@@ -90,30 +96,42 @@ class Article(models.Model):
     stokcage = models.IntegerField(null=True, blank=True, verbose_name="Stockage (Go)")
     ram = models.IntegerField(null=True, blank=True, verbose_name="RAM (Go)")
     
-    # Images originales (taille complète optimisée à 1200px max)
-    image = models.ImageField(upload_to='image_articles/')
-    image1 = models.ImageField(upload_to='image_articles/', blank=True, null=True)
-    image2 = models.ImageField(upload_to='image_articles/', blank=True, null=True)
+    # MODIFIÉ : Images stockées sur Cloudinary
+    # Cloudinary gère automatiquement les transformations et optimisations
+    image = CloudinaryField(
+        'image',
+        folder='articles/',
+        transformation={
+            'quality': 'auto:good',
+            'fetch_format': 'auto'
+        }
+    )
+    image1 = CloudinaryField(
+        'image',
+        folder='articles/',
+        blank=True,
+        null=True,
+        transformation={
+            'quality': 'auto:good',
+            'fetch_format': 'auto'
+        }
+    )
+    image2 = CloudinaryField(
+        'image',
+        folder='articles/',
+        blank=True,
+        null=True,
+        transformation={
+            'quality': 'auto:good',
+            'fetch_format': 'auto'
+        }
+    )
     
-    # Thumbnails pour les grilles (300x300px)
-    image_thumbnail = models.ImageField(
-        upload_to='image_articles/thumbnails/', 
-        blank=True, 
-        null=True,
-        editable=False
-    )
-    image1_thumbnail = models.ImageField(
-        upload_to='image_articles/thumbnails/', 
-        blank=True, 
-        null=True,
-        editable=False
-    )
-    image2_thumbnail = models.ImageField(
-        upload_to='image_articles/thumbnails/', 
-        blank=True, 
-        null=True,
-        editable=False
-    )
+    # Les thumbnails ne sont plus nécessaires car Cloudinary génère des URLs
+    # avec les dimensions voulues à la volée via les transformations
+    # Exemples d'URLs générées automatiquement :
+    # - Image complète optimisée : article.image.url
+    # - Thumbnail 300x300 : article.image.build_url(width=300, height=300, crop='fill')
     
     # Métadonnées
     date_ajout = models.DateTimeField(auto_now_add=True, null=True, blank=True)
@@ -127,100 +145,44 @@ class Article(models.Model):
         verbose_name_plural = 'Articles'
         ordering = ['-date_ajout']
     
-    def save(self, *args, **kwargs):
-        """
-        Surcharge de save() pour optimiser et créer les thumbnails automatiquement
-        """
-        # Optimiser l'image principale
-        if self.image and hasattr(self.image, 'file'):
-            self.image = self.optimize_image(self.image, max_size=(1200, 1200), quality=85)
-            self.image_thumbnail = self.create_thumbnail(self.image, size=(300, 300))
-        
-        # Optimiser image1
-        if self.image1 and hasattr(self.image1, 'file'):
-            self.image1 = self.optimize_image(self.image1, max_size=(1200, 1200), quality=85)
-            self.image1_thumbnail = self.create_thumbnail(self.image1, size=(300, 300))
-        
-        # Optimiser image2
-        if self.image2 and hasattr(self.image2, 'file'):
-            self.image2 = self.optimize_image(self.image2, max_size=(1200, 1200), quality=85)
-            self.image2_thumbnail = self.create_thumbnail(self.image2, size=(300, 300))
-        
-        super().save(*args, **kwargs)
+    # AJOUTÉ : Méthodes helper pour obtenir les URLs des thumbnails
+    def get_image_thumbnail_url(self):
+        """Retourne l'URL du thumbnail 300x300 de l'image principale"""
+        if self.image:
+            return self.image.build_url(width=300, height=300, crop='fill', quality='auto:good')
+        return None
     
-    def optimize_image(self, image_field, max_size=(1200, 1200), quality=85):
-        """
-        Optimise une image : redimensionne et compresse
-        """
-        try:
-            img = Image.open(image_field)
-            
-            if img.mode in ('RGBA', 'LA', 'P'):
-                background = Image.new('RGB', img.size, (255, 255, 255))
-                if img.mode == 'RGBA':
-                    background.paste(img, mask=img.split()[-1])
-                else:
-                    background.paste(img)
-                img = background
-            
-            img.thumbnail(max_size, Resampling.LANCZOS)
-            
-            output = BytesIO()
-            img.save(output, format='JPEG', quality=quality, optimize=True)
-            output.seek(0)
-            
-            original_name = os.path.splitext(image_field.name)[0]
-            
-            return InMemoryUploadedFile(
-                output, 
-                'ImageField', 
-                f"{original_name}_optimized.jpg",
-                'image/jpeg',
-                sys.getsizeof(output), 
-                None
-            )
-        except Exception as e:
-            print(f"Erreur lors de l'optimisation de l'image : {e}")
-            return image_field
+    def get_image1_thumbnail_url(self):
+        """Retourne l'URL du thumbnail 300x300 de image1"""
+        if self.image1:
+            return self.image1.build_url(width=300, height=300, crop='fill', quality='auto:good')
+        return None
     
-    def create_thumbnail(self, image_field, size=(300, 300), quality=80):
-        """
-        Crée un thumbnail carré pour les grilles de produits
-        """
-        try:
-            if isinstance(image_field, InMemoryUploadedFile):
-                image_field.seek(0)
-                img = Image.open(image_field)
-            else:
-                img = Image.open(image_field)
-            
-            if img.mode in ('RGBA', 'LA', 'P'):
-                background = Image.new('RGB', img.size, (255, 255, 255))
-                if img.mode == 'RGBA':
-                    background.paste(img, mask=img.split()[-1])
-                else:
-                    background.paste(img)
-                img = background
-            
-            img.thumbnail(size, Resampling.LANCZOS)
-            
-            output = BytesIO()
-            img.save(output, format='JPEG', quality=quality, optimize=True)
-            output.seek(0)
-            
-            if isinstance(image_field, InMemoryUploadedFile):
-                original_name = os.path.splitext(image_field.name)[0]
-            else:
-                original_name = os.path.splitext(image_field.name)[0]
-            
-            return InMemoryUploadedFile(
-                output,
-                'ImageField',
-                f"{original_name}_thumb.jpg",
-                'image/jpeg',
-                sys.getsizeof(output),
-                None
-            )
-        except Exception as e:
-            print(f"Erreur lors de la création du thumbnail : {e}")
-            return None
+    def get_image2_thumbnail_url(self):
+        """Retourne l'URL du thumbnail 300x300 de image2"""
+        if self.image2:
+            return self.image2.build_url(width=300, height=300, crop='fill', quality='auto:good')
+        return None
+    
+    def get_image_optimized_url(self):
+        """Retourne l'URL de l'image optimisée 1200px max"""
+        if self.image:
+            return self.image.build_url(width=1200, crop='limit', quality='auto:good')
+        return None
+    
+    def get_image1_optimized_url(self):
+        """Retourne l'URL de image1 optimisée 1200px max"""
+        if self.image1:
+            return self.image1.build_url(width=1200, crop='limit', quality='auto:good')
+        return None
+    
+    def get_image2_optimized_url(self):
+        """Retourne l'URL de image2 optimisée 1200px max"""
+        if self.image2:
+            return self.image2.build_url(width=1200, crop='limit', quality='auto:good')
+        return None
+    
+    # NOTE : La méthode save() n'a plus besoin d'optimiser les images
+    # car Cloudinary le fait automatiquement avec les transformations.
+    # Vous pouvez supprimer les méthodes optimize_image et create_thumbnail
+    # ou les garder pour compatibilité si vous avez d'autres usages.
